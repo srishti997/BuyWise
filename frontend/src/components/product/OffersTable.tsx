@@ -34,6 +34,7 @@ export default function OffersTable({ comparison }: { comparison: OfferCompariso
   const [open, setOpen] = useState<string | null>(null);
   const cheapestId = comparison.picks.find((p) => p.category === "CHEAPEST")?.offer_id;
   const bestId = comparison.picks.find((p) => p.category === "BEST_OVERALL")?.offer_id;
+  const visibleRetailers = new Set(comparison.offers.map(o => o.retailer.id)).size;
   if (!comparison.offers.length && !comparison.locked) return <p className="text-sm text-muted-foreground p-6">No offers recorded yet for this product.</p>;
   return (
     <div>
@@ -41,8 +42,8 @@ export default function OffersTable({ comparison }: { comparison: OfferCompariso
         <LockedPanel hiddenOffers={comparison.hidden_offers} hiddenRetailers={comparison.hidden_retailers} offerPreview={comparison.locked_pick_categories ?? []} />
       </div>}
       {comparison.locked && <div className="px-4 pt-2 pb-4">
-        <h3 className="font-semibold text-sm">{comparison.offers.length ? "Free preview offers" : "No free preview offers for this product yet"}</h3>
-        <p className="mt-1 text-xs text-muted-foreground">{comparison.offers.length ? `Showing ${comparison.offers.length} other retailer${comparison.offers.length === 1 ? "" : "s"}. These are a limited selection, not our top-ranked or lowest-price picks. Unlock Pro to compare every available offer.` : "Available offers are reserved for the full Pro comparison. We’ll show a preview when other eligible retailers are available."}</p>
+        <h3 className="font-semibold text-sm">{comparison.offers.length ? "Other retailers — free to compare" : "No other eligible retailers found yet"}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">{comparison.offers.length ? `Compare ${comparison.offers.length} offer${comparison.offers.length === 1 ? "" : "s"} from ${visibleRetailers} retailer${visibleRetailers === 1 ? "" : "s"} below, including prices, delivery and seller details. Only the highlighted picks above are reserved for Pro.` : "No retailer offers are available to display right now."}</p>
       </div>}
       {comparison.offers.length > 0 && <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead>
@@ -69,6 +70,7 @@ export default function OffersTable({ comparison }: { comparison: OfferCompariso
                       <div className="min-w-0">
                         <Link href={`/retailer/${o.retailer.id}`} className="font-medium hover:text-indigo-500">{o.retailer.name}</Link>
                         {o.seller && o.seller.name !== o.retailer.name && <div className="text-xs text-muted-foreground truncate">Sold by {o.seller.name}</div>}
+                        {o.match.match_type !== "exact_match" && <div className="text-xs text-amber-600 mt-1 lg:hidden">{o.match.label} · check model and variant</div>}
                         <VerificationBadge verification={o.trust.verification} className="mt-0.5" />
                         <div className="flex gap-1 mt-0.5">
                           {o.id === bestId && <span className="text-[10px] font-semibold text-indigo-500">BEST OVERALL</span>}

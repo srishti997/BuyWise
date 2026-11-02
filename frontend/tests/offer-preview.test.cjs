@@ -18,6 +18,7 @@ const mocks = {
 };
 const LockedPanel = loader({}, mocks).load('components/product/LockedPanel.tsx').default;
 const OffersTable = loader({}, { ...mocks, '@/components/product/LockedPanel': { __esModule: true, default: LockedPanel } }).load('components/product/OffersTable.tsx').default;
+const RecommendationCards = loader({}, { ...mocks, '@/components/product/LockedPanel': { __esModule: true, default: LockedPanel } }).load('components/product/RecommendationCards.tsx').default;
 const offer = {
   id: 'offer-visible', retailer: { id: 'retailer-visible', name: 'Visible store' },
   go_url: 'https://visible.example/product', currency: 'INR', condition: 'new', availability: 'in_stock',
@@ -31,7 +32,7 @@ function render(comparison) {
 
 test('locked pick placeholders appear above usable preview offers', () => {
   const html = render({ locked: true, offers: [offer], hidden_offers: 4, hidden_retailers: 3, locked_pick_categories: ['BEST_OVERALL', 'CHEAPEST'] });
-  assert.ok(html.indexOf('Best overall') < html.indexOf('Free preview offers'));
+  assert.ok(html.indexOf('Best overall') < html.indexOf('Other retailers — free to compare'));
   assert.ok(html.includes('blur-[5px]') && html.includes('aria-hidden="true"'));
   assert.ok(html.includes('Visible store') && html.includes('₹1200'));
   assert.ok(html.includes('href="https://visible.example/product"'));
@@ -43,13 +44,41 @@ test('locked pick placeholders appear above usable preview offers', () => {
 
 test('no eligible preview still shows the locked offers and honest empty state', () => {
   const html = render({ locked: true, offers: [], hidden_offers: 1, locked_pick_categories: ['CHEAPEST'] });
-  assert.ok(html.includes('Lowest price') && html.includes('Unlock with Pro'));
-  assert.ok(html.includes('No free preview offers for this product yet'));
+  assert.ok(html.includes('Cheapest') && html.includes('Unlock with Pro'));
+  assert.ok(html.includes('No other eligible retailers found yet'));
   assert.ok(!html.includes('<table') && !html.includes('₹'));
 });
 
 test('paid comparison has working retailer links and no preview upsell', () => {
   const html = render({ locked: false, offers: [offer] });
   assert.ok(html.includes('Visible store') && html.includes('₹1200'));
-  assert.ok(!html.includes('Unlock with Pro') && !html.includes('Free preview offers'));
+  assert.ok(!html.includes('Unlock with Pro') && !html.includes('Other retailers — free to compare'));
+});
+
+test('shopping decision shows blurred best/cheapest previews with a recommendations unlock link', () => {
+  const html = renderToStaticMarkup(React.createElement(RecommendationCards, {
+    recommendations: [], locked: true, lockedPickCategories: ['BEST_OVERALL', 'CHEAPEST'],
+  }));
+  assert.ok(html.includes('Best overall') && html.includes('Cheapest'));
+  assert.ok(html.includes('blur-[5px]') && html.includes('aria-hidden="true"'));
+  assert.ok(html.includes('source=recommendations'));
+  assert.ok(!html.includes('₹') && !html.includes('View offer'));
+});
+
+test('free comparison renders seven retailer offers with labels instead of hiding the table', () => {
+  const offers = Array.from({ length: 7 }, (_, index) => ({
+    ...offer, id: `offer-${index}`, retailer: { id: `retailer-${index}`, name: `Store ${index}` },
+    go_url: `https://store${index}.example/product`,
+    ...(index === 6 ? { match: { ...offer.match, match_type: 'same_product_different_variant', label: 'Different variant' }, availability: 'out_of_stock' } : {}),
+  }));
+  const html = render({ locked: true, offers, hidden_offers: 2, hidden_retailers: 2, locked_pick_categories: ['BEST_OVERALL', 'CHEAPEST', 'SAFEST'] });
+  assert.ok(html.includes('Compare 7 offers from 7 retailers'));
+  for (let index = 0; index < 7; index++) {
+    assert.ok(html.includes(`Store ${index}`));
+    assert.ok(html.includes(`href="https://store${index}.example/product"`));
+  }
+  assert.ok(html.includes('Different variant') && html.includes('check model and variant'));
+  assert.ok(html.includes('OUT OF STOCK'));
+  assert.ok(!html.includes('Highest trust score'));
+  assert.ok(!html.includes('No other eligible retailers'));
 });

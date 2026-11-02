@@ -233,7 +233,8 @@ async def test_without_pro_only_comparison_preview_can_show_prices(
         offers = (
             await client.get(f"/api/v1/products/{demo_product}/offers", headers=headers)
         ).json()
-        assert offers["locked"] is True and len(offers["offers"]) <= 2 and offers["picks"] == []
+        assert offers["locked"] is True and offers["picks"] == []
+        assert len(offers["offers"]) < offers["total_offers"]
         assert offers["lowest_final_price"] is None and offers["hidden_offers"] >= 1
         history = (
             await client.get(f"/api/v1/products/{demo_product}/history?days=90", headers=headers)

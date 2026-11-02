@@ -3,14 +3,19 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronRight } from "lucide-react";
 import { assignExperiment } from "@/lib/experiment";
-import { track } from "@/lib/analytics";
+import { track, trackExperimentExposure } from "@/lib/analytics";
 
 export default function ShoppingJourney({ step, productId }: { step: 0 | 1; productId?: string }) {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState<boolean | null>(null);
   useEffect(() => {
     Promise.resolve().then(() => setVisible(assignExperiment().variant === "b"));
+  }, []);
+  useEffect(() => {
+    // Both the control (no guidance) and treatment count as exposed here.
+    if (visible === null) return;
+    trackExperimentExposure();
     if (productId) track("view_product", { product_id: productId });
-  }, [productId]);
+  }, [visible, productId]);
   if (!visible) return null;
   return <div className="mb-7 rounded-xl border border-border bg-muted/40 p-4">
     <ol aria-label="Shopping progress" className="flex flex-wrap gap-x-3 gap-y-2 text-xs sm:text-sm">

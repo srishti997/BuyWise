@@ -3,8 +3,8 @@ import { formatPrice, getTrustColor, getRecCategoryColor, getRecCategoryLabel, p
 import type { Recommendation } from "@/lib/types";
 import LockedPanel from "@/components/product/LockedPanel";
 
-export default function RecommendationCards({ recommendations, locked = false }: { recommendations: Recommendation[]; locked?: boolean }) {
-  if (locked) return <LockedPanel what="the shopping decision" />;
+export default function RecommendationCards({ recommendations, locked = false, lockedPickCategories = [] }: { recommendations: Recommendation[]; locked?: boolean; lockedPickCategories?: string[] }) {
+  if (locked) return <LockedPanel feature="recommendations" offerPreview={lockedPickCategories} />;
   if (!recommendations.length) return <p className="text-sm text-muted-foreground">No exact-match offers available to recommend yet.</p>;
   const distinctOffers = new Set(recommendations.map((r) => r.offer_id)).size;
   if (distinctOffers === 1) {

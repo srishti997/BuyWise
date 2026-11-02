@@ -27,7 +27,51 @@ export function analyticsEnabled(): boolean {
 const pending: Array<[string, Params]> = [];
 export function flushAnalytics() {
   if (!analyticsEnabled()) return;
-  for (const [event, params] of pending.splice(0)) window.gtag!("event", event, params);
+  for (const [event, params] of pending.splice(0)) {
+    try { window.gtag!("event", event, params); } catch { /* analytics must never break the page */ }
+  }
+}
+
+function experimentParams(): Params {
+  const assignment = experimentContext() || assignExperiment();
+  return {
+    experiment_id: EXPERIMENT_ID,
+    variant: assignment.variant,
+    ui_version: assignment.variant === "a" ? "old" : "new",
+    experiment_mode: assignment.mode,
+  };
+}
+
+let initialized = false;
+/** Queue configuration before loading gtag.js, including context for automatic events. */
+export function initializeAnalytics(): boolean {
+  if (!GA_ID || typeof window === "undefined" || window.location.pathname.startsWith("/auth/callback")) return false;
+  if (assignExperiment().preview) return false;
+  if (initialized) return true;
+  window.dataLayer = window.dataLayer || [];
+  // eslint-disable-next-line prefer-rest-params -- Google's command queue uses Arguments objects.
+  window.gtag = window.gtag || function () { window.dataLayer!.push(arguments); };
+  window.gtag("js", new Date());
+  window.gtag("config", GA_ID, {
+    send_page_view: false,
+    ...experimentParams(),
+    page_location: window.location.origin + window.location.pathname,
+    page_referrer: "",
+    ...(process.env.NEXT_PUBLIC_GA_DEBUG === "true" ? { debug_mode: true } : {}),
+  });
+  initialized = true;
+  flushAnalytics();
+  return true;
+}
+
+let exposed = false;
+/** One actual treatment exposure per document, including direct search/product entries. */
+export function trackExperimentExposure(): void {
+  if (!GA_ID || typeof window === "undefined" || exposed || window.location.pathname.startsWith("/auth/callback")) return;
+  const assignment = experimentContext() || assignExperiment();
+  if (assignment.preview || assignment.mode !== "ab") return;
+  exposed = true;
+  track("experiment_exposure");
 }
 
 export function track(event: string, params: Params = {}): void {
@@ -54,15 +98,18 @@ export function track(event: string, params: Params = {}): void {
   }
   if (!GA_ID) return;
   const assignment = experimentContext() || assignExperiment();
-  if (assignment.preview || !GA_ID || window.location.pathname.startsWith("/auth/callback")) return;
-  const clean: Params = { experiment_id: EXPERIMENT_ID, variant: assignment.variant, experiment_mode: assignment.mode, page_location: window.location.origin + window.location.pathname, page_referrer: "" };
+  if (assignment.preview || window.location.pathname.startsWith("/auth/callback")) return;
+  const clean: Params = { page_location: window.location.origin + window.location.pathname, page_referrer: "" };
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") clean[k] = v;
+  // Callers cannot accidentally overwrite the actual assigned cohort.
+  Object.assign(clean, experimentParams());
   if (!analyticsEnabled()) { if (pending.length < 100) pending.push([event, clean]); return; }
   try { window.gtag!("event", event, clean); } catch { /* analytics must never break the page */ }
 }
 
 export function pageview(path: string): void {
-  const cleanPath = path.split("?")[0];
+  if (typeof window === "undefined") return;
+  const cleanPath = path.split(/[?#]/)[0];
   if (cleanPath.startsWith("/auth/callback")) return;
   track("page_view", { page_path: cleanPath, page_location: window.location.origin + cleanPath, page_title: document.title });
 }

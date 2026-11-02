@@ -208,9 +208,10 @@ class OfferService:
     ) -> OfferComparison | None:
         """The comparison for a product.
 
-        The product comparison can opt into a limited public preview. Ranked
-        retailers, their duplicate listings, and the overall lowest price remain
-        protected. Other callers retain their existing price-access restrictions.
+        The public comparison reserves at most two selected retailers for Pro,
+        always leaving a retailer visible when offers exist. Tied prices, variants
+        and unavailable listings stay visible with their existing labels.
+        Other callers retain their price-access restrictions.
         """
         product = await catalog.load_product(self.db, product_id)
         if product is None:
@@ -270,32 +271,22 @@ class OfferService:
         locked, hidden_offers, hidden_retailers = False, 0, 0
         locked_categories: list[str] = []
         if allow_preview and not full and responses:
-            picked_ids = {p.offer_id for p in picks}
-            protected_retailers = {
-                r.retailer.id
-                for r in responses
-                if r.id in picked_ids
-                or (lowest is not None and r.price.estimated_final_price <= lowest)
-            }
-            locked_categories = list(dict.fromkeys(p.category for p in picks))
-            preview = []
-            seen_retailers = set()
-            for r in sorted(responses, key=lambda r: (r.price.estimated_final_price, str(r.id))):
-                if (
-                    r.retailer.id in protected_retailers
-                    or r.retailer.id in seen_retailers
-                    or r.match.match_type != MatchType.EXACT.value
-                    or r.availability == "out_of_stock"
-                    or r.condition != "new"
-                    or (lowest is not None and r.price.estimated_final_price <= lowest)
-                ):
-                    continue
-                preview.append(r)
-                seen_retailers.add(r.retailer.id)
-                if len(preview) == 2:
-                    break
-            visible_ids = {r.id for r in preview}
-            hidden = [r for r in responses if r.id not in visible_ids]
+            protected_picks = [p for p in picks if p.category in {"BEST_OVERALL", "CHEAPEST"}]
+            retailer_by_offer = {r.id: r.retailer.id for r in responses}
+            # Reserve selected winners, not every retailer with an equal/lower
+            # price. Never turn a one- or two-retailer catalogue into an empty table.
+            lock_limit = min(2, len(set(retailer_by_offer.values())) - 1)
+            protected_retailers: set[uuid.UUID] = set()
+            for pick in protected_picks:
+                retailer_id = retailer_by_offer[pick.offer_id]
+                if retailer_id in protected_retailers or len(protected_retailers) < lock_limit:
+                    protected_retailers.add(retailer_id)
+                    locked_categories.append(pick.category)
+            hidden = [r for r in responses if r.retailer.id in protected_retailers]
+            preview = sorted(
+                (r for r in responses if r.retailer.id not in protected_retailers),
+                key=lambda r: (r.price.estimated_final_price, str(r.id)),
+            )
             hidden_offers = len(hidden)
             hidden_retailers = len({r.retailer.id for r in hidden})
             responses, picks, locked, lowest = preview, [], bool(hidden), None

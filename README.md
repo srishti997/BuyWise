@@ -74,6 +74,7 @@ See `.env.example` (documented) and `API_INTEGRATIONS.md` for where each credent
 
 ## Documentation
 
+- [A/B testing with Google Analytics](docs/AB_TESTING.md) — old/new rollout, GA4 setup, verification and conversion comparison
 - `PROJECT_AUDIT.md` — what existed, what was wrong, what changed
 - `ARCHITECTURE.md` — flows, layers, design rules
 - `DATABASE.md` — schema and data-mode rules

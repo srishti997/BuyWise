@@ -70,7 +70,7 @@ export default function ComparisonSections({
 
       <section id="recommendation" className="mb-16">
         <div className="flex flex-wrap items-center gap-3 mb-6"><h2 className="text-2xl font-bold flex items-center gap-2"><Award className="w-6 h-6 text-indigo-500" /> Shopping decision</h2>{recs && !recs.locked && <DataBadge meta={recs.meta} />}</div>
-        {loading && !recs ? <div role="status" aria-label="Loading shopping insights" className="animate-shimmer h-48 rounded-2xl" /> : recs ? <RecommendationCards recommendations={recs.recommendations} locked={Boolean(recs.locked)} /> : <p className="text-sm text-muted-foreground">Recommendations unavailable right now.</p>}
+        {loading && !recs ? <div role="status" aria-label="Loading shopping insights" className="animate-shimmer h-48 rounded-2xl" /> : recs ? <RecommendationCards recommendations={recs.recommendations} locked={Boolean(recs.locked)} lockedPickCategories={offers?.locked_pick_categories} /> : <p className="text-sm text-muted-foreground">Recommendations unavailable right now.</p>}
         {recs?.ai_explanation && !recs.locked && (
           <div className="glass rounded-2xl p-5 mt-6">
             <div className="flex items-center gap-2 text-sm font-semibold mb-2"><Sparkles className="w-4 h-4 text-indigo-500" /> AI recommendation <span className="text-xs font-normal text-muted-foreground">({recs.ai_provider === "demo" ? "template explanation — AI provider not configured" : `explained by ${recs.ai_provider}, grounded in the data above`})</span></div>
